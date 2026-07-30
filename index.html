@@ -213,6 +213,49 @@
           </div>
         </div>
 
+        <!-- Section 4: Add Custom App -->
+        <div class="settings-card">
+          <h4>Add Custom App</h4>
+          <p class="settings-description">Add a custom app to your drawer (stored locally on this device):</p>
+          <div class="form-row">
+            <label for="inputCustomAppName">App Name</label>
+            <input type="text" id="inputCustomAppName" placeholder="e.g., Instagram">
+          </div>
+          <div class="form-row">
+            <label for="inputCustomAppUrl">App URL</label>
+            <input type="text" id="inputCustomAppUrl" placeholder="e.g., https://instagram.com">
+          </div>
+          <div class="form-row">
+            <label for="selectCustomAppIcon">Select Icon</label>
+            <select id="selectCustomAppIcon" class="settings-select">
+              <option value="chrome">Chrome / Browser</option>
+              <option value="camera">Camera</option>
+              <option value="chat">WhatsApp / Chat</option>
+              <option value="contacts">Contacts</option>
+              <option value="folder">Files</option>
+              <option value="mail">Mail</option>
+              <option value="map">Maps</option>
+              <option value="music">Music</option>
+              <option value="play">Play Store</option>
+              <option value="youtube">YouTube</option>
+              <option value="image">Photos</option>
+              <option value="video">Video</option>
+              <option value="shield">VPN / Security</option>
+              <option value="default">Default</option>
+            </select>
+          </div>
+          <button class="btn-settings-action" id="btnAddCustomApp">Add App</button>
+        </div>
+
+        <!-- Section 5: Manage Existing Apps -->
+        <div class="settings-card">
+          <h4>Manage Existing Apps</h4>
+          <p class="settings-description">Hide default apps or delete custom ones from your app drawer:</p>
+          <div class="app-manager-list" id="appManagerList">
+            <!-- Dynamically populated list of apps with Hide/Delete actions -->
+          </div>
+        </div>
+
         <!-- Info Section -->
         <div class="settings-info-footer">
           <p>Minimalist Launcher v1.0.0</p>

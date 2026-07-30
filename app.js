@@ -19,8 +19,8 @@ const iconPaths = {
   default: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>'
 };
 
-// All available applications database
-const appsDatabase = [
+// Default applications database
+const DEFAULT_APPS = [
   { id: 'chrome', label: 'Chrome', category: 'C', icon: 'chrome', url: 'https://www.google.com' },
   { id: 'camera', label: 'Camera', category: 'C', icon: 'camera', url: '#' },
   { id: 'chat', label: 'WhatsApp', category: 'W', icon: 'chat', url: 'https://web.whatsapp.com' },
@@ -37,15 +37,37 @@ const appsDatabase = [
   { id: 'mon_vpn', label: 'Mon VPN', category: 'M', icon: 'shield', url: '#' }
 ];
 
+let appsDatabase = [...DEFAULT_APPS];
+
 // App State Management (Default fallback configuration values)
 const DEFAULT_STATE = {
   username: 'BHAGWAN',
   focusText: 'IT\'S TIME TO FOCUS ON WORK',
   wallpaper: 'shoreline',
-  favorites: ['chrome', 'node_video', 'mon_vpn', 'play', 'youtube', 'gallery', 'settings']
+  favorites: ['chrome', 'node_video', 'mon_vpn', 'play', 'youtube', 'gallery', 'settings'],
+  customApps: [],
+  hiddenApps: []
 };
 
 let appState = { ...DEFAULT_STATE };
+
+// Rebuild apps list based on user custom and hidden preferences
+function rebuildAppsDatabase() {
+  const visibleDefaults = DEFAULT_APPS.filter(app => !appState.hiddenApps.includes(app.id));
+  const visibleCustoms = appState.customApps.filter(app => !appState.hiddenApps.includes(app.id));
+  appsDatabase = [...visibleDefaults, ...visibleCustoms];
+}
+
+// Secure URL protocol validation to prevent XSS injection
+function isValidAppUrl(url) {
+  if (url === '#') return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch (e) {
+    return false;
+  }
+}
 
 // Initialize and load State from LocalStorage
 function loadState() {
@@ -54,11 +76,15 @@ function loadState() {
     try {
       const parsed = JSON.parse(savedState);
       appState = { ...DEFAULT_STATE, ...parsed };
+      rebuildAppsDatabase();
     } catch (e) {
       console.warn('Failed to parse saved state, using default values.');
     }
+  } else {
+    rebuildAppsDatabase();
   }
 }
+
 
 function saveState() {
   localStorage.setItem('niagara_launcher_state', JSON.stringify(appState));
@@ -590,6 +616,9 @@ function openSettingsDrawer() {
   // Build Favorites Customization Editor checklist
   buildFavoritesSelectorUI();
   
+  // Render Dynamic App Manager
+  renderAppManagerList();
+  
   // Show settings Drawer panels
   document.getElementById('settingsDrawerBackdrop').classList.remove('hidden');
   document.getElementById('settingsDrawer').classList.remove('hidden');
@@ -666,6 +695,182 @@ function buildFavoritesSelectorUI() {
   });
 }
 
+function showCustomModal(titleText, bodyText) {
+  const dialog = document.createElement('div');
+  dialog.className = 'mock-alert-overlay';
+  
+  const card = document.createElement('div');
+  card.className = 'mock-alert-card';
+  
+  const title = document.createElement('h4');
+  title.textContent = titleText;
+  
+  const text = document.createElement('p');
+  text.textContent = bodyText;
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', () => {
+    dialog.remove();
+  });
+  
+  card.appendChild(title);
+  card.appendChild(text);
+  card.appendChild(closeBtn);
+  dialog.appendChild(card);
+  document.body.appendChild(dialog);
+}
+
+function renderAppManagerList() {
+  const container = document.getElementById('appManagerList');
+  if (!container) return;
+  container.replaceChildren(); // Safe clear
+  
+  // 1. Built-in default apps
+  DEFAULT_APPS.forEach(app => {
+    const isHidden = appState.hiddenApps.includes(app.id);
+    
+    const row = document.createElement('div');
+    row.className = 'app-manager-row';
+    
+    const leftGroup = document.createElement('div');
+    leftGroup.className = 'app-manager-left';
+    
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'app-manager-icon';
+    iconContainer.appendChild(createSvgElement(app.icon));
+    
+    const label = document.createElement('span');
+    label.className = 'app-manager-label';
+    label.textContent = app.label + (app.id === 'settings' ? ' (System)' : '');
+    
+    leftGroup.appendChild(iconContainer);
+    leftGroup.appendChild(label);
+    
+    row.appendChild(leftGroup);
+    
+    if (app.id !== 'settings') {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'btn-app-delete action-hide';
+      toggleBtn.textContent = isHidden ? 'Show' : 'Hide';
+      toggleBtn.addEventListener('click', () => {
+        if (isHidden) {
+          appState.hiddenApps = appState.hiddenApps.filter(id => id !== app.id);
+        } else {
+          appState.hiddenApps.push(app.id);
+          appState.favorites = appState.favorites.filter(id => id !== app.id);
+        }
+        rebuildAppsDatabase();
+        saveState();
+        renderAppManagerList();
+        renderFavorites();
+        renderAppDrawerList();
+        buildFavoritesSelectorUI();
+      });
+      row.appendChild(toggleBtn);
+    }
+    
+    container.appendChild(row);
+  });
+  
+  // 2. Custom user-added apps
+  appState.customApps.forEach(app => {
+    const row = document.createElement('div');
+    row.className = 'app-manager-row';
+    
+    const leftGroup = document.createElement('div');
+    leftGroup.className = 'app-manager-left';
+    
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'app-manager-icon';
+    iconContainer.appendChild(createSvgElement(app.icon));
+    
+    const label = document.createElement('span');
+    label.className = 'app-manager-label';
+    label.textContent = app.label;
+    
+    leftGroup.appendChild(iconContainer);
+    leftGroup.appendChild(label);
+    
+    row.appendChild(leftGroup);
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-app-delete';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+      appState.customApps = appState.customApps.filter(a => a.id !== app.id);
+      appState.hiddenApps = appState.hiddenApps.filter(id => id !== app.id);
+      appState.favorites = appState.favorites.filter(id => id !== app.id);
+      
+      rebuildAppsDatabase();
+      saveState();
+      renderAppManagerList();
+      renderFavorites();
+      renderAppDrawerList();
+      buildFavoritesSelectorUI();
+    });
+    row.appendChild(deleteBtn);
+    
+    container.appendChild(row);
+  });
+}
+
+function handleAddCustomApp() {
+  const nameInput = document.getElementById('inputCustomAppName');
+  const urlInput = document.getElementById('inputCustomAppUrl');
+  const iconSelect = document.getElementById('selectCustomAppIcon');
+  
+  if (!nameInput || !urlInput || !iconSelect) return;
+  
+  const name = nameInput.value.trim();
+  let url = urlInput.value.trim();
+  const icon = iconSelect.value;
+  
+  if (!name) {
+    showCustomModal('Validation Error', 'Please enter an app name.');
+    return;
+  }
+  
+  if (!url) {
+    url = '#';
+  } else {
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+    
+    if (!isValidAppUrl(url)) {
+      showCustomModal('Validation Error', 'Please enter a valid HTTP or HTTPS URL.');
+      return;
+    }
+  }
+  
+  const id = 'custom_' + Date.now();
+  
+  const newApp = {
+    id: id,
+    label: name,
+    category: name.charAt(0).toUpperCase(),
+    icon: icon,
+    url: url
+  };
+  
+  appState.customApps.push(newApp);
+  rebuildAppsDatabase();
+  saveState();
+  
+  // Clear inputs
+  nameInput.value = '';
+  urlInput.value = '';
+  iconSelect.selectedIndex = 0;
+  
+  renderAppManagerList();
+  renderFavorites();
+  renderAppDrawerList();
+  buildFavoritesSelectorUI();
+  
+  showCustomModal('Success', `"${name}" has been added to your App Drawer.`);
+}
+
 function setupSettingsListeners() {
   document.getElementById('closeSettingsBtn').addEventListener('click', closeSettingsDrawer);
   document.getElementById('settingsDrawerBackdrop').addEventListener('click', closeSettingsDrawer);
@@ -681,6 +886,12 @@ function setupSettingsListeners() {
       saveState();
     });
   });
+
+  // Custom App Form Action
+  const btnAdd = document.getElementById('btnAddCustomApp');
+  if (btnAdd) {
+    btnAdd.addEventListener('click', handleAddCustomApp);
+  }
 }
 
 // -----------------------------------------------------------------
